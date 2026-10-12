@@ -19,8 +19,26 @@ Les déclarations d'indisponibilité sont dédoublonnées : on garde la dernièr
 de chaque déclaration, on retire les déclarations annulées ou retirées, et une unité
 couverte par plusieurs déclarations n'est comptée qu'une fois (la plus pénalisante).
 
-Si une source ne répond pas, le mail part quand même avec les autres sections et
-liste les sources en erreur en bas de page.
+## Sources de secours
+
+Sans clé ENTSO-E (secret `ENTSOE_TOKEN` absent ou vide), ou si l'API ENTSO-E ne
+répond pas, chaque donnée bascule sur une source publique sans clé :
+
+| Donnée | Source principale | Secours | Limite du secours |
+|---|---|---|---|
+| Prix spot | ENTSO-E | [Energy-Charts](https://api.energy-charts.info) (Fraunhofer ISE) | — |
+| Mix de production | ENTSO-E | Energy-Charts | — |
+| Indisponibilités | ENTSO-E | [Open data EDF](https://opendata.edf.fr/datasets/indisponibilites-des-moyens-de-production-edf-sa) | Parc EDF SA uniquement (pas les centrales gaz d'Engie, TotalEnergies…) |
+| Capacités installées | ENTSO-E | Valeurs de référence dans `bulletin/fallback.py` | À mettre à jour chaque année |
+
+Le pied du mail indique la source utilisée pour chaque donnée et signale toute
+bascule. Si une donnée manque aussi chez le secours, le mail part quand même avec
+les autres sections et liste les erreurs en bas de page. Le run GitHub n'échoue
+que si aucune source n'a répondu.
+
+Les colonnes du fichier EDF sont reconnues par mots-clés (« début », « fin »,
+« puissance disponible »…). Si EDF renomme ses colonnes, l'erreur affichée dans
+le mail liste les colonnes reçues pour corriger `EDF_COLUMNS`.
 
 ## Utilisation
 
@@ -30,7 +48,7 @@ pip install -r requirements.txt
 # Aperçu avec des données synthétiques, sans clé d'API
 python -m bulletin --demo --out apercu.html
 
-# Données réelles, écrites dans un fichier
+# Données réelles, écrites dans un fichier (sans ENTSOE_TOKEN : sources de secours)
 ENTSOE_TOKEN=... python -m bulletin --out bulletin.html
 
 # Données réelles + envoi du mail
@@ -43,7 +61,7 @@ pytest -q
 
 | Variable | Rôle |
 |---|---|
-| `ENTSOE_TOKEN` | Jeton d'API ENTSO-E (gratuit : créer un compte sur transparency.entsoe.eu puis demander l'accès « Restful API » par mail à transparency@entsoe.eu) |
+| `ENTSOE_TOKEN` | Facultatif. Jeton d'API ENTSO-E (gratuit : créer un compte sur transparency.entsoe.eu puis demander l'accès « Restful API » par mail à transparency@entsoe.eu) |
 | `SMTP_HOST`, `SMTP_PORT` | Serveur d'envoi (port 587 STARTTLS par défaut, 465 SSL). Gmail : `smtp.gmail.com` avec un mot de passe d'application |
 | `SMTP_USER`, `SMTP_PASSWORD` | Identifiants SMTP |
 | `MAIL_FROM` | Expéditeur (par défaut `SMTP_USER`) |
@@ -61,7 +79,8 @@ dépôt : Settings → Secrets and variables → Actions.
 
 ```
 bulletin/
-  sources.py      appels ENTSO-E (entsoe-py), tolérants aux pannes
+  sources.py      appels ENTSO-E (entsoe-py) et bascule vers les secours
+  fallback.py     sources de secours sans clé (Energy-Charts, open data EDF)
   indicators.py   calculs (fonctions pures, testées)
   render.py       mise en forme, formats français, objet du mail
   templates/      gabarit HTML du mail (styles en ligne pour les clients mail)

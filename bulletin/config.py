@@ -1,6 +1,7 @@
 """Configuration lue depuis les variables d'environnement."""
 
 import os
+from typing import Optional
 from dataclasses import dataclass
 
 
@@ -28,8 +29,6 @@ class SmtpConfig:
         )
 
 
-def entsoe_token() -> str:
-    token = os.environ.get("ENTSOE_TOKEN")
-    if not token:
-        raise RuntimeError("Variable d'environnement ENTSOE_TOKEN manquante")
-    return token
+def entsoe_token() -> Optional[str]:
+    """Clé ENTSO-E, ou None : le bulletin passe alors par les sources de secours."""
+    return os.environ.get("ENTSOE_TOKEN") or None

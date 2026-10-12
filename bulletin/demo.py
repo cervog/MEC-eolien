@@ -114,4 +114,5 @@ def demo_data(now: pd.Timestamp) -> MarketData:
         generation=demo_generation(today - pd.Timedelta(days=1)),
         installed=demo_installed(),
         outages=demo_outages(now),
+        sources={name: "démo" for name in ("Prix spot", "Production", "Capacités installées", "Indisponibilités")},
     )

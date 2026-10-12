@@ -99,7 +99,10 @@
       <td style="{{ tdr }}">{{ r['taux_dispo'] | pourcent }}</td>{% endif %}</tr>
   {% endfor %}
 </table>
-<p style="{{ note }}">Indisponibilités déclarées sur la plateforme de transparence ENTSO-E (unités ≥ 100 MW). Capacités installées au 1er janvier.</p>
+{% set src_indispo = sources.get('Indisponibilités', '') %}
+{% set src_installe = sources.get('Capacités installées', '') %}
+<p style="{{ note }}">{% if src_indispo == 'ENTSO-E' %}Indisponibilités déclarées sur la plateforme de transparence ENTSO-E (unités ≥ 100 MW).{% elif 'EDF' in src_indispo %}Indisponibilités du parc EDF SA uniquement (open data EDF) : les centrales des autres producteurs ne sont pas comptées.{% endif %}
+{% if src_installe == 'ENTSO-E' %} Capacités installées au 1er janvier.{% elif 'référence' in src_installe %} Capacités installées : valeurs de référence.{% endif %}</p>
 {% else %}{{ vide() }}{% endif %}
 
 {# ---------- Nouvelles fortuites ---------- #}
@@ -161,7 +164,12 @@
 </ul>
 {% endif %}
 
-<p style="{{ note }}margin-top:24px;">Source : ENTSO-E Transparency Platform. Généré le {{ now.strftime('%d/%m/%Y à %Hh%M') }} (heure de Paris).</p>
+{% if notes %}
+<ul style="font-size:11px;color:#92400e;margin:20px 0 0;padding-left:18px;">
+  {% for n in notes %}<li>{{ n }}</li>{% endfor %}
+</ul>
+{% endif %}
+<p style="{{ note }}margin-top:24px;">Sources : {% for name, src in sources.items() %}{{ name | lower }} {{ src }}{{ " · " if not loop.last }}{% else %}–{% endfor %}. Généré le {{ now.strftime('%d/%m/%Y à %Hh%M') }} (heure de Paris).</p>
 </td></tr>
 </table>
 </td></tr>

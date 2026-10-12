@@ -99,6 +99,8 @@ def build_context(data: MarketData) -> dict:
         "retours": ind.upcoming_returns(current, now),
         "fortuites": ind.new_forced_outages(current, now),
         "errors": data.errors,
+        "sources": data.sources,
+        "notes": data.notes,
     }
 
 

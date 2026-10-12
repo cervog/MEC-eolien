@@ -35,14 +35,16 @@ def main(argv=None) -> int:
 
         data = demo_data(now)
     else:
-        from .sources import fetch_entsoe
+        from .sources import fetch
 
-        data = fetch_entsoe(entsoe_token(), now)
+        data = fetch(entsoe_token(), now)
 
     ctx = build_context(data)
     html = render_html(ctx)
     subj = subject(ctx)
     print(subj)
+    for note in data.notes:
+        print(f"[secours] {note}", file=sys.stderr)
     for name, err in data.errors.items():
         print(f"[erreur] {name} : {err}", file=sys.stderr)
 
