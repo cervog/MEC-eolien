@@ -1,0 +1,170 @@
+{% set th = "text-align:left;padding:6px 8px;border-bottom:2px solid #1f3a5f;font-size:12px;color:#1f3a5f;" %}
+{% set thr = "text-align:right;padding:6px 8px;border-bottom:2px solid #1f3a5f;font-size:12px;color:#1f3a5f;" %}
+{% set td = "padding:5px 8px;border-bottom:1px solid #e3e6ea;font-size:13px;" %}
+{% set tdr = "padding:5px 8px;border-bottom:1px solid #e3e6ea;font-size:13px;text-align:right;white-space:nowrap;" %}
+{% set h2 = "font-size:16px;color:#1f3a5f;margin:28px 0 8px;border-left:4px solid #e07b00;padding-left:8px;" %}
+{% set note = "font-size:11px;color:#6b7280;margin:4px 0 0;" %}
+{% macro vide(msg="Données indisponibles.") %}<p style="font-size:13px;color:#6b7280;margin:0;">{{ msg }}</p>{% endmacro %}
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bulletin électricité FR</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:16px 8px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:680px;background:#ffffff;border-radius:6px;">
+<tr><td style="background:#1f3a5f;color:#ffffff;padding:18px 20px;border-radius:6px 6px 0 0;">
+  <div style="font-size:12px;letter-spacing:1px;text-transform:uppercase;opacity:.8;">Bulletin marché électrique · France</div>
+  <div style="font-size:20px;font-weight:bold;margin-top:4px;">{{ titre_date | capitalize }}</div>
+</td></tr>
+
+{# ---------- Chiffres clés ---------- #}
+<tr><td style="padding:16px 20px 0;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+  <td width="33%" style="padding:10px;background:#f8fafc;border-radius:4px;vertical-align:top;">
+    <div style="font-size:11px;color:#6b7280;">Spot base J+1</div>
+    {% if lendemain %}
+    <div style="font-size:22px;font-weight:bold;">{{ lendemain.base | nombre(1) }} <span style="font-size:12px;">€/MWh</span></div>
+    {% if jour %}{% set d = lendemain.base - jour.base %}
+    <div style="font-size:12px;color:{{ '#b91c1c' if d > 0 else '#15803d' }};">{{ '+' if d > 0 else '' }}{{ d | nombre(1) }} vs J</div>{% endif %}
+    {% else %}<div style="font-size:14px;margin-top:6px;">Non encore publié</div>{% endif %}
+  </td>
+  <td width="4"></td>
+  <td width="33%" style="padding:10px;background:#f8fafc;border-radius:4px;vertical-align:top;">
+    <div style="font-size:11px;color:#6b7280;">Nucléaire disponible</div>
+    {% if nucleaire is not none and nucleaire.get('dispo_mw') is not none %}
+    <div style="font-size:22px;font-weight:bold;">{{ (nucleaire['dispo_mw'] / 1000) | nombre(1) }} <span style="font-size:12px;">GW</span></div>
+    <div style="font-size:12px;color:#6b7280;">{{ nucleaire['taux_dispo'] | pourcent }} de {{ (nucleaire['installe_mw'] / 1000) | nombre(1) }} GW</div>
+    {% elif nucleaire is not none %}
+    <div style="font-size:22px;font-weight:bold;">{{ (nucleaire['indispo_mw'] / 1000) | nombre(1) }} <span style="font-size:12px;">GW indispo.</span></div>
+    {% else %}<div style="font-size:14px;margin-top:6px;">–</div>{% endif %}
+  </td>
+  <td width="4"></td>
+  <td width="33%" style="padding:10px;background:#f8fafc;border-radius:4px;vertical-align:top;">
+    <div style="font-size:11px;color:#6b7280;">Indisponible (toutes filières)</div>
+    {% if current is not none %}
+    <div style="font-size:22px;font-weight:bold;">{{ (current['indispo_mw'].sum() / 1000) | nombre(1) }} <span style="font-size:12px;">GW</span></div>
+    <div style="font-size:12px;color:#6b7280;">{{ current | length }} unités · {{ fortuites | length }} fortuite(s) &lt;24h</div>
+    {% else %}<div style="font-size:14px;margin-top:6px;">–</div>{% endif %}
+  </td>
+</tr></table>
+</td></tr>
+
+<tr><td style="padding:0 20px 20px;">
+
+{# ---------- Prix spot ---------- #}
+<h2 style="{{ h2 }}">Prix spot day-ahead (€/MWh)</h2>
+{% if veille or jour or lendemain %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th style="{{ th }}">Livraison</th><th style="{{ thr }}">Base</th><th style="{{ thr }}">Pointe 8h-20h</th>
+      <th style="{{ thr }}">Min</th><th style="{{ thr }}">Max</th><th style="{{ thr }}">H. négatives</th></tr>
+  {% for label, s in [("Hier", veille), ("Aujourd'hui", jour), ("Demain", lendemain)] %}
+  <tr>
+    <td style="{{ td }}">{{ label }}{% if s %} <span style="color:#6b7280;font-size:11px;">{{ s.day.strftime('%d/%m') }}</span>{% endif %}</td>
+    {% if s %}
+    <td style="{{ tdr }}font-weight:bold;">{{ s.base | nombre(1) }}</td>
+    <td style="{{ tdr }}">{{ s.peak | nombre(1) }}</td>
+    <td style="{{ tdr }}">{{ s.min | nombre(1) }} <span style="color:#6b7280;font-size:11px;">{{ s.min_at | heure }}</span></td>
+    <td style="{{ tdr }}">{{ s.max | nombre(1) }} <span style="color:#6b7280;font-size:11px;">{{ s.max_at | heure }}</span></td>
+    <td style="{{ tdr }}">{{ s.negative_hours | duree }}</td>
+    {% else %}
+    <td style="{{ tdr }}color:#6b7280;" colspan="5">non publié</td>
+    {% endif %}
+  </tr>
+  {% endfor %}
+</table>
+{% if profil_cells %}
+<p style="font-size:12px;color:#374151;margin:14px 0 4px;">Profil horaire du {{ profil.day | date_longue }} (moyenne horaire)</p>
+{% for ligne in [profil_cells[:12], profil_cells[12:]] %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="1" style="table-layout:fixed;">
+  <tr>{% for c in ligne %}<td style="font-size:10px;color:#6b7280;text-align:center;">{{ c.h }}h</td>{% endfor %}</tr>
+  <tr>{% for c in ligne %}<td style="background:{{ c.fond }};font-size:11px;text-align:center;padding:4px 0;border-radius:2px;">{{ c.prix }}</td>{% endfor %}</tr>
+</table>
+{% endfor %}
+{% endif %}
+{% else %}{{ vide() }}{% endif %}
+
+{# ---------- Disponibilité du parc ---------- #}
+<h2 style="{{ h2 }}">Disponibilité du parc pilotable (maintenant)</h2>
+{% if dispo is not none and dispo | length %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th style="{{ th }}">Filière</th>
+      {% if 'installe_mw' in dispo %}<th style="{{ thr }}">Installé (MW)</th>{% endif %}
+      <th style="{{ thr }}">Indisponible (MW)</th>
+      {% if 'dispo_mw' in dispo %}<th style="{{ thr }}">Disponible (MW)</th><th style="{{ thr }}">Taux</th>{% endif %}</tr>
+  {% for f, r in dispo.iterrows() %}
+  <tr><td style="{{ td }}">{{ f }}</td>
+      {% if 'installe_mw' in dispo %}<td style="{{ tdr }}">{{ r['installe_mw'] | nombre }}</td>{% endif %}
+      <td style="{{ tdr }}">{{ r['indispo_mw'] | nombre }}</td>
+      {% if 'dispo_mw' in dispo %}<td style="{{ tdr }}font-weight:bold;">{{ r['dispo_mw'] | nombre }}</td>
+      <td style="{{ tdr }}">{{ r['taux_dispo'] | pourcent }}</td>{% endif %}</tr>
+  {% endfor %}
+</table>
+<p style="{{ note }}">Indisponibilités déclarées sur la plateforme de transparence ENTSO-E (unités ≥ 100 MW). Capacités installées au 1er janvier.</p>
+{% else %}{{ vide() }}{% endif %}
+
+{# ---------- Nouvelles fortuites ---------- #}
+<h2 style="{{ h2 }}">Nouvelles indisponibilités fortuites (24 h)</h2>
+{% if fortuites is not none and fortuites | length %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th style="{{ th }}">Unité</th><th style="{{ th }}">Filière</th><th style="{{ thr }}">Indispo. (MW)</th><th style="{{ thr }}">Fin prévue</th></tr>
+  {% for _, r in fortuites.iterrows() %}
+  <tr><td style="{{ td }}">{{ r['production_resource_psr_name'] }}</td><td style="{{ td }}">{{ r['filiere'] }}</td>
+      <td style="{{ tdr }}">{{ r['indispo_mw'] | nombre }}</td><td style="{{ tdr }}">{{ r['fin_prevue'] | date_courte }}</td></tr>
+  {% endfor %}
+</table>
+{% elif fortuites is not none %}{{ vide("Aucune nouvelle indisponibilité fortuite.") }}{% else %}{{ vide() }}{% endif %}
+
+{# ---------- Retours prévus ---------- #}
+<h2 style="{{ h2 }}">Retours annoncés sous 7 jours</h2>
+{% if retours is not none and retours | length %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th style="{{ th }}">Unité</th><th style="{{ th }}">Filière</th><th style="{{ th }}">Type</th><th style="{{ thr }}">MW</th><th style="{{ thr }}">Retour</th></tr>
+  {% for _, r in retours.iterrows() %}
+  <tr><td style="{{ td }}">{{ r['production_resource_psr_name'] }}</td><td style="{{ td }}">{{ r['filiere'] }}</td><td style="{{ td }}">{{ r['type'] }}</td>
+      <td style="{{ tdr }}">{{ r['indispo_mw'] | nombre }}</td><td style="{{ tdr }}">{{ r['fin_prevue'] | date_courte }}</td></tr>
+  {% endfor %}
+</table>
+<p style="{{ note }}">Total : {{ (retours['indispo_mw'].sum() / 1000) | nombre(1) }} GW attendus de retour d'ici 7 jours.</p>
+{% elif retours is not none %}{{ vide("Aucun retour annoncé sous 7 jours.") }}{% else %}{{ vide() }}{% endif %}
+
+{# ---------- Top indisponibilités ---------- #}
+<h2 style="{{ h2 }}">Principales indisponibilités en cours</h2>
+{% if top_indispo is not none and top_indispo | length %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th style="{{ th }}">Unité</th><th style="{{ th }}">Type</th><th style="{{ thr }}">Indispo. / Pmax (MW)</th><th style="{{ thr }}">Fin prévue</th></tr>
+  {% for _, r in top_indispo.iterrows() %}
+  <tr><td style="{{ td }}">{{ r['production_resource_psr_name'] }} <span style="color:#6b7280;font-size:11px;">{{ r['filiere'] }}</span></td>
+      <td style="{{ td }}">{{ r['type'] }}</td>
+      <td style="{{ tdr }}">{{ r['indispo_mw'] | nombre }} / {{ r['nominal_power'] | float | nombre }}</td>
+      <td style="{{ tdr }}">{{ r['fin_prevue'] | date_courte }}</td></tr>
+  {% endfor %}
+</table>
+{% elif top_indispo is not none %}{{ vide("Aucune indisponibilité en cours.") }}{% else %}{{ vide() }}{% endif %}
+
+{# ---------- Mix ---------- #}
+<h2 style="{{ h2 }}">Mix de production d'hier</h2>
+{% if mix is not none %}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+  <tr><th style="{{ th }}">Filière</th><th style="{{ thr }}">GWh</th><th style="{{ thr }}">Part</th><th style="{{ th }}" width="40%"></th></tr>
+  {% for f, r in mix.iterrows() %}
+  <tr><td style="{{ td }}">{{ f }}</td><td style="{{ tdr }}">{{ r['energie_gwh'] | nombre(1) }}</td><td style="{{ tdr }}">{{ r['part'] | pourcent(1) }}</td>
+      <td style="{{ td }}"><div style="background:#e07b00;height:8px;width:{{ (100 * r['part']) | round(1) }}%;border-radius:2px;"></div></td></tr>
+  {% endfor %}
+  <tr><td style="{{ td }}font-weight:bold;">Total</td><td style="{{ tdr }}font-weight:bold;">{{ mix['energie_gwh'].sum() | nombre(1) }}</td><td style="{{ td }}"></td><td style="{{ td }}"></td></tr>
+</table>
+{% else %}{{ vide() }}{% endif %}
+
+{% if errors %}
+<h2 style="{{ h2 }}">Sources en erreur</h2>
+<ul style="font-size:12px;color:#b91c1c;margin:0;padding-left:18px;">
+  {% for name, err in errors.items() %}<li>{{ name }} : {{ err }}</li>{% endfor %}
+</ul>
+{% endif %}
+
+<p style="{{ note }}margin-top:24px;">Source : ENTSO-E Transparency Platform. Généré le {{ now.strftime('%d/%m/%Y à %Hh%M') }} (heure de Paris).</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>

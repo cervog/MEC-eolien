@@ -1,0 +1,42 @@
+name: Bulletin électricité
+
+on:
+  schedule:
+    # 12h20 UTC : 14h20 l'été, 13h20 l'hiver, après la publication des prix day-ahead J+1.
+    - cron: "20 12 * * *"
+  workflow_dispatch:
+    inputs:
+      send:
+        description: "Envoyer le mail"
+        type: boolean
+        default: true
+
+jobs:
+  bulletin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+      - name: Générer et envoyer le bulletin
+        env:
+          ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: |
+          python -m bulletin --out bulletin.html \
+            ${{ (github.event_name == 'schedule' || inputs.send) && '--send' || '' }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bulletin
+          path: bulletin.html
+          if-no-files-found: ignore
