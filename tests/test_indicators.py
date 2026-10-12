@@ -1,0 +1,159 @@
+import pandas as pd
+import pytest
+
+from bulletin import TZ
+from bulletin import indicators as ind
+from bulletin.demo import demo_data, demo_generation, demo_outages
+from bulletin.render import build_context, duree, nombre, render_html, subject
+
+NOW = pd.Timestamp("2026-10-12 14:00", tz=TZ)
+
+
+def test_price_stats_quart_horaire():
+    idx = pd.date_range("2026-10-12", periods=96, freq="15min", tz=TZ)
+    prices = pd.Series(50.0, index=idx)
+    prices[(idx.hour >= 12) & (idx.hour < 14)] = -5.0  # 2 h négatives
+    prices[idx.hour == 19] = 200.0
+
+    s = ind.price_stats(prices, NOW)
+    assert s.negative_hours == pytest.approx(2.0)
+    assert s.max == 200 and s.max_at.hour == 19
+    assert s.min == -5
+    assert s.base == pytest.approx(prices.mean())
+    # Pointe 8h-20h : 48 quarts d'heure, dont 8 négatifs et 4 à 200.
+    assert s.peak == pytest.approx((36 * 50 + 8 * -5 + 4 * 200) / 48)
+    assert len(s.hourly) == 24
+
+
+def test_price_stats_jour_non_publie():
+    idx = pd.date_range("2026-10-12", periods=24, freq="h", tz=TZ)
+    prices = pd.Series(50.0, index=idx)
+    assert ind.price_stats(prices, NOW + pd.Timedelta(days=1)) is None
+    assert ind.price_stats(None, NOW) is None
+
+
+def test_generation_mix_regroupe_les_filieres():
+    gen = demo_generation(pd.Timestamp("2026-10-11", tz=TZ))
+    mix = ind.generation_mix(gen)
+    assert list(mix.index)[:3] == ["Nucléaire", "Hydraulique", "Éolien"]
+    assert "Charbon" not in mix.index  # production nulle
+    assert mix["part"].sum() == pytest.approx(1.0)
+    expected_wind = (gen["Wind Onshore"] + gen["Wind Offshore"]).sum() * 0.25 / 1000
+    assert mix.loc["Éolien", "energie_gwh"] == pytest.approx(expected_wind)
+
+
+def test_generation_mix_colonnes_multiindex():
+    idx = pd.date_range("2026-10-11", periods=24, freq="h", tz=TZ)
+    cols = pd.MultiIndex.from_tuples([("Nuclear", "Actual Aggregated"), ("Hydro Pumped Storage", "Actual Aggregated"),
+                                      ("Hydro Pumped Storage", "Actual Consumption")])
+    gen = pd.DataFrame([[1000.0, 100.0, 300.0]] * 24, index=idx, columns=cols)
+    mix = ind.generation_mix(gen)
+    assert mix.loc["Nucléaire", "energie_gwh"] == pytest.approx(24.0)
+    assert mix.loc["Hydraulique", "energie_gwh"] == pytest.approx(2.4)
+
+
+def test_outages_derniere_revision_et_annulations():
+    outages = ind.latest_outages(demo_outages(NOW))
+    assert "GOLFECH 1" not in set(outages["production_resource_psr_name"])
+    current = ind.current_outages(outages, NOW)
+    gravelines = current.set_index("production_resource_psr_name").loc["GRAVELINES 4"]
+    assert gravelines["indispo_mw"] == 310  # 910 MW nominal, 600 MW disponibles
+    assert current["indispo_mw"].is_monotonic_decreasing
+
+
+def test_outages_unite_recouverte_comptee_une_fois():
+    raw = demo_outages(NOW).reset_index()
+    doublon = raw[raw["mrid"] == "m2"].assign(mrid="m2bis", avail_qty="650")
+    raw = pd.concat([raw, doublon]).set_index("created_doc_time")
+    current = ind.current_outages(ind.latest_outages(raw), NOW)
+    cattenom = current[current["production_resource_psr_name"] == "CATTENOM 3"]
+    assert len(cattenom) == 1 and cattenom["indispo_mw"].iloc[0] == 1300
+
+
+def test_disponibilite_nucleaire():
+    data = demo_data(NOW)
+    current = ind.current_outages(ind.latest_outages(data.outages), NOW)
+    dispo = ind.availability_by_filiere(current, data.installed)
+    nuc = dispo.loc["Nucléaire"]
+    assert nuc["indispo_mw"] == 1330 + 1300 + 1330 + 310 + 915 + 880 + 500
+    assert nuc["dispo_mw"] == pytest.approx(62990 - nuc["indispo_mw"])
+
+
+def test_retours_et_fortuites():
+    current = ind.current_outages(ind.latest_outages(demo_outages(NOW)), NOW)
+    retours = ind.upcoming_returns(current, NOW)
+    assert "CATTENOM 3" not in set(retours["production_resource_psr_name"])  # retour à J+25
+    assert retours["fin_prevue"].is_monotonic_increasing
+    fortuites = ind.new_forced_outages(current, NOW)
+    assert set(fortuites["production_resource_psr_name"]) == {"PALUEL 2", "CHOOZ B1", "BLENOD 5"}
+
+
+def test_outages_vides():
+    empty = pd.DataFrame(columns=["created_doc_time", "mrid", "revision", "docstatus"]).set_index("created_doc_time")
+    assert ind.latest_outages(empty).empty
+
+
+def test_rendu_complet_et_sources_en_erreur():
+    data = demo_data(NOW)
+    ctx = build_context(data)
+    html = render_html(ctx)
+    assert "Lundi 12 octobre 2026" in html
+    assert "PALUEL 2" in html
+    assert "Nucléaire dispo" in subject(ctx)
+
+    data.prices = None
+    data.errors["Prix spot"] = "HTTPError: 503"
+    ctx = build_context(data)
+    html = render_html(ctx)
+    assert "HTTPError: 503" in html
+    assert "Spot" not in subject(ctx)
+
+
+def test_formats_francais():
+    assert nombre(62990) == "62 990"
+    assert nombre(72.84, 1) == "72,8"
+    assert nombre(None) == "–"
+    assert duree(1.75) == "1h45"
+    assert duree(2.0) == "2h"
+    assert duree(0) == "0"
+
+
+def test_source_en_echec_consignee():
+    from bulletin.sources import MarketData
+
+    data = MarketData(now=NOW)
+    assert data.attempt("Prix spot", lambda: 1 / 0) is None
+    assert data.errors["Prix spot"].startswith("ZeroDivisionError")
+
+
+def test_envoi_smtp(monkeypatch):
+    from bulletin import mailer
+    from bulletin.config import SmtpConfig
+
+    sent = {}
+
+    class FakeSMTP:
+        def __init__(self, host, port):
+            sent["server"] = (host, port)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def starttls(self, context):
+            sent["tls"] = True
+
+        def login(self, user, password):
+            sent["login"] = user
+
+        def send_message(self, msg):
+            sent["msg"] = msg
+
+    monkeypatch.setattr(mailer.smtplib, "SMTP", FakeSMTP)
+    cfg = SmtpConfig("smtp.example.org", 587, "moi@example.org", "x", "moi@example.org", ["a@example.org", "b@example.org"])
+    mailer.send(cfg, "Objet", "<p>html</p>", "texte")
+    assert sent["server"] == ("smtp.example.org", 587) and sent["tls"]
+    assert sent["msg"]["To"] == "a@example.org, b@example.org"
+    assert sent["msg"].get_body(("html",)).get_content().strip() == "<p>html</p>"
