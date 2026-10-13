@@ -120,14 +120,17 @@
 {# ---------- Retours prévus ---------- #}
 <h2 style="{{ h2 }}">Retours annoncés sous 7 jours</h2>
 {% if retours is not none and retours | length %}
+{% if retours_affiches | length %}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
   <tr><th style="{{ th }}">Unité</th><th style="{{ th }}">Filière</th><th style="{{ th }}">Type</th><th style="{{ thr }}">MW</th><th style="{{ thr }}">Retour</th></tr>
-  {% for _, r in retours.iterrows() %}
+  {% for _, r in retours_affiches.iterrows() %}
   <tr><td style="{{ td }}">{{ r['production_resource_psr_name'] }}</td><td style="{{ td }}">{{ r['filiere'] }}</td><td style="{{ td }}">{{ r['type'] }}</td>
       <td style="{{ tdr }}">{{ r['indispo_mw'] | nombre }}</td><td style="{{ tdr }}">{{ r['fin_prevue'] | date_courte }}</td></tr>
   {% endfor %}
 </table>
-<p style="{{ note }}">Total : {{ (retours['indispo_mw'].sum() / 1000) | nombre(1) }} GW attendus de retour d'ici 7 jours.</p>
+{% endif %}
+{% set petits = retours | length - retours_affiches | length %}
+<p style="{{ note }}">Total : {{ (retours['indispo_mw'].sum() / 1000) | nombre(1) }} GW attendus de retour d'ici 7 jours{% if petits %}, dont {{ petits }} unité(s) de moins de 100 MW non détaillée(s) ({{ (retours['indispo_mw'].sum() - retours_affiches['indispo_mw'].sum()) | nombre }} MW){% endif %}.</p>
 {% elif retours is not none %}{{ vide("Aucun retour annoncé sous 7 jours.") }}{% else %}{{ vide() }}{% endif %}
 
 {# ---------- Top indisponibilités ---------- #}

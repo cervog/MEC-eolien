@@ -96,6 +96,7 @@ def demo_outages(now: pd.Timestamp) -> pd.DataFrame:
         _outage("m7", 1, "CHOOZ B1", "CHOOZ", "Nuclear", 1500, 1000, now - 2 * h, now + 10 * h, "A54", created=now - 3 * h),
         _outage("m8", 1, "MONTEZIC 1", "MONTEZIC", "Hydro Pumped Storage", 230, 0, now - 4 * d, now + 9 * d, created=now - 5 * d),
         _outage("m9", 1, "BLENOD 5", "BLENOD", "Fossil Gas", 430, 0, now - 10 * h, now + 30 * h, "A54", created=now - 10 * h),
+        _outage("m12", 1, "SABLONS G1", "SABLONS", "Hydro Run-of-river and pondage", 40, 0, now - 2 * d, now + 3 * d, created=now - 3 * d),
         _outage("m10", 1, "CORDEMAIS 4", "CORDEMAIS", "Fossil Hard coal", 580, 0, now - 90 * d, now + 40 * d, created=now - 91 * d),
         # Déclaration remplacée par une révision ultérieure annulée : ne doit pas apparaître.
         _outage("m11", 1, "GOLFECH 1", "GOLFECH", "Nuclear", 1310, 0, now - d, now + 5 * d, created=now - 2 * d),

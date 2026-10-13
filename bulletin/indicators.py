@@ -137,9 +137,12 @@ def current_outages(outages: Optional[pd.DataFrame], now: pd.Timestamp) -> Optio
     if outages is None:
         return None
     cur = outages[(outages["start"] <= now) & (outages["end"] > now) & (outages["indispo_mw"] > 0)]
-    # Plusieurs déclarations peuvent se recouvrir sur une même unité : on garde la plus pénalisante.
-    cur = cur.sort_values("indispo_mw", ascending=False)
-    cur = cur.drop_duplicates(subset=["production_resource_id", "production_resource_psr_name"])
+    # Plusieurs déclarations peuvent se recouvrir sur une même unité, parfois sous des
+    # identifiants différents : on dédoublonne sur le nom normalisé et on garde la plus pénalisante.
+    unit = cur["production_resource_psr_name"].fillna("").astype(str).str.upper().str.replace(r"[^A-Z0-9]", "", regex=True)
+    unit = unit.where(unit != "", cur["production_resource_id"].astype(str))
+    cur = cur.assign(_unit=unit).sort_values("indispo_mw", ascending=False)
+    cur = cur.drop_duplicates(subset="_unit")
     cols = [
         "production_resource_psr_name", "production_resource_name", "filiere", "type",
         "nominal_power", "indispo_mw", "fin_prevue", "created_doc_time",
@@ -164,6 +167,8 @@ def availability_by_filiere(current: Optional[pd.DataFrame], installed: Optional
     table["indispo_mw"] = table["indispo_mw"].fillna(0)
     if "installe_mw" in table:
         table = table[table.index.isin(["Nucléaire", "Hydraulique", "Gaz", "Charbon", "Fioul"]) | (table["indispo_mw"] > 0)]
+        # Les déclarations peuvent dépasser la capacité recensée au 1er janvier : on plafonne.
+        table["indispo_mw"] = table["indispo_mw"].clip(upper=table["installe_mw"].fillna(float("inf")))
         table["dispo_mw"] = table["installe_mw"] - table["indispo_mw"]
         table["taux_dispo"] = table["dispo_mw"] / table["installe_mw"]
     table = table.reindex([f for f in ORDRE_FILIERES if f in table.index])

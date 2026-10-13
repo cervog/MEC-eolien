@@ -8,6 +8,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from . import indicators as ind
 from .sources import MarketData
 
+SEUIL_RETOURS_MW = 100  # en dessous, les retours sont seulement comptés dans le total
+
 JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
 MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août",
         "septembre", "octobre", "novembre", "décembre"]
@@ -30,7 +32,11 @@ def date_longue(ts: pd.Timestamp) -> str:
 
 
 def date_courte(ts) -> str:
-    return "–" if ts is None or pd.isna(ts) else pd.Timestamp(ts).strftime("%d/%m %Hh")
+    """« 14/10 23h », avec l'année si ce n'est pas l'année en cours : « 11/09/27 00h »."""
+    if ts is None or pd.isna(ts):
+        return "–"
+    ts = pd.Timestamp(ts)
+    return ts.strftime("%d/%m %Hh" if ts.year == pd.Timestamp.now().year else "%d/%m/%y %Hh")
 
 
 def heure(ts) -> str:
@@ -78,6 +84,7 @@ def build_context(data: MarketData) -> dict:
     outages = ind.latest_outages(data.outages)
     current = ind.current_outages(outages, now)
     dispo = ind.availability_by_filiere(current, data.installed)
+    retours = ind.upcoming_returns(current, now)
     nucleaire = None
     if dispo is not None and "Nucléaire" in dispo.index:
         nucleaire = dispo.loc["Nucléaire"]
@@ -96,7 +103,8 @@ def build_context(data: MarketData) -> dict:
         "nucleaire": nucleaire,
         "current": current,
         "top_indispo": current.head(15) if current is not None else None,
-        "retours": ind.upcoming_returns(current, now),
+        "retours": retours,
+        "retours_affiches": None if retours is None else retours[retours["indispo_mw"] >= SEUIL_RETOURS_MW],
         "fortuites": ind.new_forced_outages(current, now),
         "errors": data.errors,
         "sources": data.sources,

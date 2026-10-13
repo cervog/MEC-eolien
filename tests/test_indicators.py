@@ -157,3 +157,36 @@ def test_envoi_smtp(monkeypatch):
     assert sent["server"] == ("smtp.example.org", 587) and sent["tls"]
     assert sent["msg"]["To"] == "a@example.org, b@example.org"
     assert sent["msg"].get_body(("html",)).get_content().strip() == "<p>html</p>"
+
+
+def test_unite_declaree_sous_deux_identifiants_et_plafond():
+    raw = demo_outages(NOW).reset_index()
+    cordemais = raw[raw["mrid"] == "m10"]
+    # Même unité, autre identifiant de centrale et nom écrit différemment.
+    doublon = cordemais.assign(mrid="m10bis", production_resource_id="17W-AUTRE", production_resource_psr_name="Cordemais-4")
+    raw = pd.concat([raw, doublon]).set_index("created_doc_time")
+    current = ind.current_outages(ind.latest_outages(raw), NOW)
+    assert (current["filiere"] == "Charbon").sum() == 1
+
+    installed = demo_data(NOW).installed.copy()
+    installed["Fossil Hard coal"] = 300.0  # capacité recensée inférieure à l'indisponibilité déclarée
+    dispo = ind.availability_by_filiere(current, installed)
+    assert dispo.loc["Charbon", "indispo_mw"] == 300
+    assert dispo.loc["Charbon", "dispo_mw"] == 0
+
+
+def test_date_courte_avec_annee_si_autre_annee():
+    from bulletin.render import date_courte
+
+    this_year = pd.Timestamp.now(tz=TZ).year
+    assert date_courte(pd.Timestamp(f"{this_year}-10-14 23:00", tz=TZ)) == "14/10 23h"
+    assert date_courte(pd.Timestamp(f"{this_year + 1}-09-11 00:00", tz=TZ)) == f"11/09/{(this_year + 1) % 100:02d} 00h"
+
+
+def test_retours_petites_unites_resumees():
+    data = demo_data(NOW)
+    ctx = build_context(data)
+    assert "SABLONS G1" in set(ctx["retours"]["production_resource_psr_name"])
+    assert "SABLONS G1" not in set(ctx["retours_affiches"]["production_resource_psr_name"])
+    html = render_html(ctx)
+    assert "1 unité(s) de moins de 100 MW non détaillée(s) (40 MW)" in html
