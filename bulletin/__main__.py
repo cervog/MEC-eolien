@@ -27,6 +27,7 @@ def main(argv=None) -> int:
     parser.add_argument("--demo", action="store_true", help="données synthétiques, sans appel à ENTSO-E")
     parser.add_argument("--send", action="store_true", help="envoyer le bulletin par mail (variables SMTP_*)")
     parser.add_argument("--out", type=Path, help="écrire le HTML dans ce fichier")
+    parser.add_argument("--print", action="store_true", dest="print_text", help="afficher la version texte du bulletin")
     args = parser.parse_args(argv)
 
     now = pd.Timestamp.now(tz=TZ).floor("min")
@@ -48,6 +49,8 @@ def main(argv=None) -> int:
     for name, err in data.errors.items():
         print(f"[erreur] {name} : {err}", file=sys.stderr)
 
+    if args.print_text:
+        print(html_to_text(html))
     if args.out:
         args.out.write_text(html, encoding="utf-8")
         print(f"HTML écrit dans {args.out}")

@@ -32,7 +32,7 @@ jobs:
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
         run: |
-          python -m bulletin --out bulletin.html \
+          python -m bulletin --out bulletin.html --print \
             ${{ (github.event_name == 'schedule' || inputs.send) && '--send' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
