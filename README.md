@@ -69,11 +69,13 @@ pytest -q
 
 ## Envoi automatique
 
-Le workflow `.github/workflows/bulletin.yml` tourne chaque jour à 12h20 UTC
-(après la publication des prix J+1), lance les tests, génère le bulletin, l'envoie
-et le garde en artefact du run. Il se lance aussi à la main depuis l'onglet
-Actions (« Run workflow »). Les variables ci-dessus sont à créer en *secrets* du
-dépôt : Settings → Secrets and variables → Actions.
+Le workflow `.github/workflows/bulletin.yml` lance les tests, génère le bulletin,
+l'envoie et le garde en artefact du run. Il est déclenché chaque jour à 13h25
+(heure de Paris, après la publication des prix J+1) par une tâche planifiée
+Claude Code, car la planification native de GitHub accusait plusieurs heures de
+retard. Il se lance aussi à la main depuis l'onglet Actions (« Run workflow »).
+Les variables ci-dessus sont à créer en *secrets* du dépôt : Settings → Secrets
+and variables → Actions.
 
 ## Structure
 

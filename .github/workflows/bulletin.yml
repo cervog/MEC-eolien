@@ -1,9 +1,8 @@
 name: Bulletin électricité
 
+# Lancé chaque jour par une tâche planifiée Claude Code (13h25 heure de Paris) via
+# workflow_dispatch : la planification « schedule » de GitHub prenait des heures de retard.
 on:
-  schedule:
-    # 12h20 UTC : 14h20 l'été, 13h20 l'hiver, après la publication des prix day-ahead J+1.
-    - cron: "20 12 * * *"
   workflow_dispatch:
     inputs:
       send:
@@ -33,7 +32,7 @@ jobs:
           MAIL_TO: ${{ secrets.MAIL_TO }}
         run: |
           python -m bulletin --out bulletin.html --print \
-            ${{ (github.event_name == 'schedule' || inputs.send) && '--send' || '' }}
+            ${{ inputs.send && '--send' || '' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
