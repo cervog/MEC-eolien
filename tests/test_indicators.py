@@ -190,3 +190,14 @@ def test_retours_petites_unites_resumees():
     assert "SABLONS G1" not in set(ctx["retours_affiches"]["production_resource_psr_name"])
     html = render_html(ctx)
     assert "1 unité(s) de moins de 100 MW non détaillée(s) (40 MW)" in html
+
+
+def test_bulletin_du_matin_sans_prix_j1():
+    data = demo_data(NOW)
+    data.prices = data.prices[data.prices.index < NOW.normalize() + pd.Timedelta(days=1)]
+    ctx = build_context(data)
+    assert ctx["lendemain"] is None
+    html = render_html(ctx)
+    assert "Spot base aujourd" in html and "vs hier" in html
+    assert "publication vers 13h" in html
+    assert "Spot J base" in subject(ctx)

@@ -21,12 +21,14 @@
 <tr><td style="padding:16px 20px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
   <td width="33%" style="padding:10px;background:#f8fafc;border-radius:4px;vertical-align:top;">
-    <div style="font-size:11px;color:#6b7280;">Spot base J+1</div>
-    {% if lendemain %}
-    <div style="font-size:22px;font-weight:bold;">{{ lendemain.base | nombre(1) }} <span style="font-size:12px;">€/MWh</span></div>
-    {% if jour %}{% set d = lendemain.base - jour.base %}
-    <div style="font-size:12px;color:{{ '#b91c1c' if d > 0 else '#15803d' }};">{{ '+' if d > 0 else '' }}{{ d | nombre(1) }} vs J</div>{% endif %}
-    {% else %}<div style="font-size:14px;margin-top:6px;">Non encore publié</div>{% endif %}
+    {# Le matin, J+1 n'est pas encore publié (vers 13h) : on affiche J comparé à J-1. #}
+    {% set tuile, ref, ref_label = (lendemain, jour, "J") if lendemain else (jour, veille, "hier") %}
+    <div style="font-size:11px;color:#6b7280;">Spot base {{ "J+1" if lendemain else "aujourd'hui" }}</div>
+    {% if tuile %}
+    <div style="font-size:22px;font-weight:bold;">{{ tuile.base | nombre(1) }} <span style="font-size:12px;">€/MWh</span></div>
+    {% if ref %}{% set d = tuile.base - ref.base %}
+    <div style="font-size:12px;color:{{ '#b91c1c' if d > 0 else '#15803d' }};">{{ '+' if d > 0 else '' }}{{ d | nombre(1) }} vs {{ ref_label }}</div>{% endif %}
+    {% else %}<div style="font-size:14px;margin-top:6px;">Non publié</div>{% endif %}
   </td>
   <td width="4"></td>
   <td width="33%" style="padding:10px;background:#f8fafc;border-radius:4px;vertical-align:top;">
@@ -67,7 +69,7 @@
     <td style="{{ tdr }}">{{ s.max | nombre(1) }} <span style="color:#6b7280;font-size:11px;">{{ s.max_at | heure }}</span></td>
     <td style="{{ tdr }}">{{ s.negative_hours | duree }}</td>
     {% else %}
-    <td style="{{ tdr }}color:#6b7280;" colspan="5">non publié</td>
+    <td style="{{ tdr }}color:#6b7280;" colspan="5">publication vers 13h</td>
     {% endif %}
   </tr>
   {% endfor %}

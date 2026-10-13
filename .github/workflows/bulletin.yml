@@ -1,6 +1,6 @@
 name: Bulletin électricité
 
-# Lancé chaque jour par une tâche planifiée Claude Code (13h25 heure de Paris) via
+# Lancé chaque jour par une tâche planifiée Claude Code (5h46 heure de Paris) via
 # workflow_dispatch : la planification « schedule » de GitHub prenait des heures de retard.
 on:
   workflow_dispatch:
