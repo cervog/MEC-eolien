@@ -70,7 +70,7 @@ pytest -q
 ## Envoi automatique
 
 Le workflow `.github/workflows/bulletin.yml` lance les tests, génère le bulletin,
-l'envoie et le garde en artefact du run. Il est déclenché chaque jour à 5h46
+l'envoie et le garde en artefact du run. Il est déclenché chaque jour à 5h21
 (heure de Paris) par une tâche planifiée
 Claude Code, car la planification native de GitHub accusait plusieurs heures de
 retard. À cette heure, les prix J+1 ne sont pas encore publiés (vers 13h) : le
