@@ -152,6 +152,7 @@ def test_envoi_smtp(monkeypatch):
             sent["msg"] = msg
 
     monkeypatch.setattr(mailer.smtplib, "SMTP", FakeSMTP)
+    monkeypatch.setattr(mailer.socket, "getaddrinfo", lambda *a, **k: [object()])
     cfg = SmtpConfig("smtp.example.org", 587, "moi@example.org", "x", "moi@example.org", ["a@example.org", "b@example.org"])
     mailer.send(cfg, "Objet", "<p>html</p>", "texte")
     assert sent["server"] == ("smtp.example.org", 587) and sent["tls"]

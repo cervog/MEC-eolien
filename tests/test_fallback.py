@@ -122,3 +122,38 @@ def test_sans_cle_entsoe(monkeypatch):
     assert "ENTSO-E" not in data.sources.values()
     assert not data.errors
     assert data.notes == ["Pas de clé ENTSO-E : sources de secours utilisées."]
+
+
+def test_secret_smtp_host_mal_saisi_nettoye(monkeypatch):
+    from bulletin.config import SmtpConfig, clean_host
+
+    assert clean_host("  smtp://SMTP.gmail.com:465/ \n") == ("smtp.gmail.com", 465)
+    assert clean_host("smtp.gmail.com") == ("smtp.gmail.com", None)
+    monkeypatch.setenv("SMTP_HOST", "")
+    monkeypatch.setenv("SMTP_PORT", "")
+    monkeypatch.setenv("SMTP_USER", "moi@gmail.com")
+    monkeypatch.setenv("SMTP_PASSWORD", "x")
+    monkeypatch.setenv("MAIL_TO", "a@example.org")
+    cfg = SmtpConfig.from_env()
+    assert (cfg.host, cfg.port) == ("smtp.gmail.com", 587)
+
+
+def test_serveur_smtp_introuvable_repli_gmail(monkeypatch):
+    import socket
+
+    from bulletin import mailer
+    from bulletin.config import SmtpConfig
+
+    def fake_getaddrinfo(host, port, *a, **k):
+        if host != "smtp.gmail.com":
+            raise socket.gaierror(-2, "Name or service not known")
+        return [object()]
+
+    monkeypatch.setattr(mailer.socket, "getaddrinfo", fake_getaddrinfo)
+    cfg = SmtpConfig("smtp.gmial.com", 2525, "moi@gmail.com", "x", "moi@gmail.com", ["a@example.org"])
+    fixed = mailer.reachable_config(cfg)
+    assert (fixed.host, fixed.port) == ("smtp.gmail.com", 587)
+
+    autre = SmtpConfig("smtp.inconnu.example", 587, "moi@example.org", "x", "moi@example.org", ["a@example.org"])
+    with pytest.raises(RuntimeError, match="SMTP_HOST"):
+        mailer.reachable_config(autre)
