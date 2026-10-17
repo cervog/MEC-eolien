@@ -78,6 +78,20 @@ bulletin présente les prix du jour, comparés à la veille. Il se lance aussi �
 Les variables ci-dessus sont à créer en *secrets* du dépôt : Settings → Secrets
 and variables → Actions.
 
+### Résumé « En bref » en tête du mail
+
+Chaque matin, l'envoi se fait en deux runs du workflow :
+
+1. `send` décoché : le bulletin est généré sans être envoyé ; sa version texte est
+   affichée dans le journal du run.
+2. Claude lit ces chiffres, rédige un résumé de quelques phrases, puis relance le
+   workflow avec `source_run` (identifiant du premier run) et `resume` (le texte).
+   Le bulletin du premier run est repris tel quel, le résumé est placé en tête
+   (paragraphes séparés par une ligne vide) et le mail part.
+
+Sans `resume`, le mail part sans encadré. En local :
+`python -m bulletin --from-html bulletin.html --resume "…" --send`.
+
 ## Structure
 
 ```

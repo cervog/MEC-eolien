@@ -2,6 +2,9 @@ name: Bulletin électricité
 
 # Lancé chaque jour par une tâche planifiée Claude Code (5h21 heure de Paris) via
 # workflow_dispatch : la planification « schedule » de GitHub prenait des heures de retard.
+# Envoi en deux runs : le premier génère le bulletin sans l'envoyer ; Claude en rédige
+# le résumé puis relance avec source_run (le bulletin du premier run, repris tel quel)
+# et resume (placé en tête du mail).
 on:
   workflow_dispatch:
     inputs:
@@ -9,6 +12,18 @@ on:
         description: "Envoyer le mail"
         type: boolean
         default: true
+      resume:
+        description: "Résumé à placer en tête du mail (facultatif)"
+        type: string
+        default: ""
+      source_run:
+        description: "Identifiant d'un run dont reprendre le bulletin au lieu de le régénérer (facultatif)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  actions: read
 
 jobs:
   bulletin:
@@ -21,6 +36,14 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - run: python -m pytest -q
+      - name: Récupérer le bulletin du run précédent
+        if: inputs.source_run != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: bulletin
+          run-id: ${{ inputs.source_run }}
+          github-token: ${{ github.token }}
+          path: precedent
       - name: Générer et envoyer le bulletin
         env:
           ENTSOE_TOKEN: ${{ secrets.ENTSOE_TOKEN }}
@@ -30,9 +53,15 @@ jobs:
           SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
+          RESUME: ${{ inputs.resume }}
+          SOURCE: ${{ inputs.source_run != '' && 'precedent/bulletin.html' || '' }}
+          SEND: ${{ inputs.send && '--send' || '' }}
         run: |
-          python -m bulletin --out bulletin.html --print \
-            ${{ inputs.send && '--send' || '' }}
+          if [ -n "$SOURCE" ]; then
+            python -m bulletin --from-html "$SOURCE" --resume "$RESUME" --out bulletin.html --print $SEND
+          else
+            python -m bulletin --resume "$RESUME" --out bulletin.html --print $SEND
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

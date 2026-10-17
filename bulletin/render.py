@@ -1,5 +1,7 @@
 """Mise en forme du bulletin (HTML pour le mail + objet)."""
 
+import re
+from html import escape, unescape
 from pathlib import Path
 
 import pandas as pd
@@ -133,4 +135,30 @@ def render_html(ctx: dict) -> str:
     )
     env.filters.update(nombre=nombre, pourcent=pourcent, date_courte=date_courte, heure=heure,
                        date_longue=date_longue, duree=duree)
-    return env.get_template("bulletin.html.j2").render(**ctx)
+    return env.get_template("bulletin.html.j2").render(sujet=subject(ctx), **ctx)
+
+
+MARQUEUR_RESUME = "<!--RESUME-->"
+
+
+def insert_summary(html: str, resume: str) -> str:
+    """Place le résumé rédigé (texte brut, paragraphes séparés par des lignes vides) sous l'en-tête."""
+    paragraphes = [p.strip() for p in resume.replace("\r", "").split("\n\n") if p.strip()]
+    if not paragraphes:
+        return html
+    corps = "".join(
+        f'<p style="margin:0 0 8px;font-size:14px;line-height:1.5;">{escape(p).replace(chr(10), "<br>")}</p>'
+        for p in paragraphes
+    )
+    bloc = (
+        '<tr><td style="padding:16px 20px 0;"><div style="background:#fff7ed;border-left:4px solid #e07b00;'
+        'border-radius:4px;padding:12px 14px 4px;">'
+        '<div style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#9a3412;margin-bottom:6px;">'
+        f"En bref</div>{corps}</div></td></tr>"
+    )
+    return html.replace(MARQUEUR_RESUME, bloc, 1)
+
+
+def subject_from_html(html: str) -> str:
+    m = re.search(r"<title>(.*?)</title>", html, flags=re.S)
+    return unescape(m.group(1)).strip() if m else "Bulletin électricité FR"

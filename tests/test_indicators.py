@@ -202,3 +202,31 @@ def test_bulletin_du_matin_sans_prix_j1():
     assert "Spot base aujourd" in html and "vs hier" in html
     assert "publication vers 13h" in html
     assert "Spot J base" in subject(ctx)
+
+
+def test_resume_insere_en_tete_et_reprise_du_bulletin(tmp_path):
+    from bulletin.__main__ import main
+
+    brut = tmp_path / "brut.html"
+    assert main(["--demo", "--out", str(brut)]) == 0
+    html = brut.read_text(encoding="utf-8")
+    assert "<!--RESUME-->" in html and "En bref" not in html
+    assert "<title>Bulletin électricité FR – " in html
+
+    final = tmp_path / "final.html"
+    resume = "Prix en hausse <nette>.\nNucléaire stable.\n\nDeuxième paragraphe."
+    assert main(["--from-html", str(brut), "--resume", resume, "--out", str(final)]) == 0
+    out = final.read_text(encoding="utf-8")
+    assert "En bref" in out and "<!--RESUME-->" not in out
+    assert "Prix en hausse &lt;nette&gt;.<br>Nucléaire stable." in out
+    assert out.count("<p style=\"margin:0 0 8px") == 2
+    # Le reste du bulletin est repris à l'identique.
+    assert out.replace(out[out.index("<tr><td style=\"padding:16px 20px 0;\"><div"):out.index("</div></td></tr>") + 16], "<!--RESUME-->") == html
+
+
+def test_resume_vide_laisse_le_bulletin_intact():
+    from bulletin.render import insert_summary, subject_from_html
+
+    html = "<html><head><title>Bulletin électricité FR – 17/10/2026 · Spot J base 139 €/MWh</title></head><!--RESUME--></html>"
+    assert insert_summary(html, "  \n ") == html
+    assert subject_from_html(html) == "Bulletin électricité FR – 17/10/2026 · Spot J base 139 €/MWh"
